@@ -1,4 +1,4 @@
-from __future__ import printFunction, diviide
+from __future__ import division,print_function
 import sys,random
 sys.dontWriteByteCode=True
 
@@ -11,10 +11,10 @@ class o:
     
 def settings(**d): return o(
     seed=1,
-    np=10
+    np=10,
     k=100,
     kMore=1.1,
-    tiny=0.05
+    tiny=0.05,
     _logo="""
              "=.
              "=. \ 
@@ -113,7 +113,7 @@ class S:
 
 class O:
   "for objectives"
-  def __init__(i,col=0,f=lambda x: 1,name=None),
+  def __init__(i,col=0,f=lambda x: 1,name=None,
     love=False # for objectives to maximize, set love to True
     ):
     i.f=f
@@ -124,8 +124,9 @@ class O:
   def nudge(i): return None
   def score(i,lst):
     x = lst[i.col]
-    if x == None
-        i.n += x = i.f(row)
+    if x == None:
+        x = i.f(row)
+        i.n += x
         lst[i.col] = x
     return x
   def height(i):
@@ -135,7 +136,7 @@ class O:
   def worse(i,x,y):
     return x < y if i.love else x > y
   
-def Meta:
+class Meta:
   id=0
   def __init__(i,of,weight=1,dead=True):
     i.weight, i.dead,i.of = weight,dead,of
@@ -145,16 +146,16 @@ def Meta:
   def fuse(i): return i.any()
   def nudge(i): return i.any()
   def __repr__(i):
-    return of.name+':'+\
-           'DEAD' if i.dead else 'ALIVE'+'*'\
-           i.weight
+    return of.name + ':' \
+           + 'DEAD' if i.dead else 'ALIVE' \
+           + '*' + i.weight
 
 def Schaffer():
   def f1(row): return row[0]**2
   def f2(row): return (row[0]-2)**2
   return Columns(Schaffer,
                  [N(least=-4, most=4)
-                 ,O(f=f1),
+                 ,O(f=f1)
                  ,O(f=f2)
                  ])
 
@@ -175,7 +176,7 @@ class Columns:
     i.cl    = Close()
   def any(i):
     return [col.any() for col in i.cols]
-  def __iadd__(i,lst)
+  def __iadd__(i,lst):
     for one in i.indep: one += lst[one.col]
   def score(i,lst):
     return [col.score(lst) for col in i.objs]
