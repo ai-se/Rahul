@@ -250,9 +250,7 @@ def deadAnt(model):
     k -= 1
     (a,old),(b,other) = neighbors(m,new,
                                   pop.values())[:1]
-    close1 = m.cl.close(a)
-    close2 = m.cl.close(b)
-    if not close1:
+    if not m.cl.close(a):
       c = m.dist(old,other,peeking=True)
       y = fromLine(a,b,c)
       if not m.cl.close(y):
