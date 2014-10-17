@@ -8,8 +8,8 @@ def settings(**d): return o(
   synopsis="""DeadAnt's tabu memory is a trail of 'dead ants' 
            in regions known to be sub-optimal. Newly generated 
            solutions are only evaluated if are not 'close' to 
-           a dead ant (where 'close' is learned dynamically);
-           otherwise, they are declared to be another 'dead ant'.
+           a dead ant, where 'close' is learned dynamically (and
+           if they are close to ad dead ant, they become dead as well).
            To reduce the overhead of searching through the ants, 
            old dead ants are incrementally fused into a few
            cluster centroids. To better explore good solutions,
