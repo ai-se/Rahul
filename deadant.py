@@ -11,8 +11,8 @@ def settings(**d): return o(
            a dead ant, where 'close' is learned dynamically (and
            if they are close to ad dead ant, they become dead as well).
            To reduce the overhead of searching through the ants, 
-           old dead ants are incrementally fused into a few
-           cluster centroids. To better explore good solutions,
+           pairs of close dead ants are incrementally fused
+           together. To better explore good solutions,
            if a candidate is dominated by a live ant, then 
            the candidate is nudged towards the better ant.""",
   _logo="""
@@ -50,7 +50,8 @@ def settings(**d): return o(
   k=100,
   kMore=1.1,
   tiny=0.05,
-  start='The._logo'
+  start='print(The._logo)',
+  closeEnough=2
   ).update(**d)
 
 class o:
@@ -67,11 +68,11 @@ def cmd(com=The.start):
     if len(sys.argv) == 3:
       if sys.argv[1] == '--cmd':
         com = sys.argv[2]
-    print(eval(com))
+    eval(com)
 
 class Close():
   def __init__(i):
-    i.sum, i.n = [0.0]*32, [0.0]*32
+    i.sum, i.n = [0]*32, [0]*32
   def p(i,x):
     for j in xrange(len(i.sum)):
       mu = i.sum[j] / i.n[j]
@@ -83,16 +84,26 @@ class Close():
       i.sum[j] += x
       i.n[j]   += 1
       mu        = i.sum[j] / i.n[j]
-      if x > mu: return x
-    return x
+      if x >= mu: return i
+      if i.sum[j] < The.closeEnough: return i
+    return i
   def close(i,x):
     return i.p(x) < The.tiny
+
+def _close():
+  seed(1)
+  cl=Close()
+  for _ in xrange(10000):
+    cl += rand()*100
+  print(':p',cl.p(2),':close',cl.close(2))
+  print(map(lambda x: int(x[0]/x[1]) if x[1] else 0,zip(cl.sum,cl.n)))
 
 class Column:
   def any(i): return None
   def fuse(i,x,w1,y,w2): return None
   def nudge(i,x,y): return None
   def dist(i,x,y): return 0
+  def norm(i,x) : return x
 
 class N(Column):
   "For nums"
@@ -132,7 +143,6 @@ class S(Column):
     return random.choice(i.items)
   def __iadd__(i,x): 
     assert x in i.index
-  def norm(i,x):  return x
   def dist(i,x,y): return 0 if x == y else 0
   def fuse(i,x,w1,y,w2):
     return x if rand() <= w1/(w1+w2) else y
