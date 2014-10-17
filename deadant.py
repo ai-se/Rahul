@@ -1,6 +1,6 @@
 from __future__ import division,print_function
 import sys,random
-sys.dontWriteByteCode=True
+sys.dont_write_bytecode =True
 
 def settings(**d): return o(
   name="DEADANT v0.1",
@@ -21,16 +21,16 @@ def settings(**d): return o(
                 \ \ 
              _,-=\/=._        _.-,_
             /         \      /=-._ "-.
-           |=-./~\___/~\    /     `-._\ 
-           |   \o/   \o/   /         /
-            \_   `~~~;/    |         |
-              `~,._,-'    /          /
-                 | |      =-._      /
+           |=-./~\___/~\    / How `-._\ 
+           |   \o/   \o/   /  to      /
+            \_   `~~~;/    |  Dodge   |
+              `~,._,-'    /   Dead   /
+                 | |      =-._Things/
              _,-=/ \=-._     /|`-._/
            //           \\   )\ 
-          /|             |)_.'/
-         //|             |\_."   _.-\ 
-        (|  \           /    _.`=    \ 
+          /|    I See   |)_.'/
+         //|    Dead    |\_."   _.-\ 
+        (|  \   People /    _.`=    \ 
         ||   ":_    _.;"_.-;"   _.-=.:
      _-."/    / `-."\_."        =-_.;\ 
     `-_./   /             _.-=.    / \\ 
@@ -265,14 +265,16 @@ def neighbors(m,lst1,pop):
                  if not lst1[0].id == lst2[0].id])
 
 def deadAnt(model):
+  m     = model()
+  pop   = {}
   def remember(new): m += new; pop[ new[0].id ]= new
   def itsAlive(lst): lst[0].dead = False; return lst
   def itsDead(lst) : lst[0].dead = True;  return lst
   def itsGone(lst) : del pop[lst[0].id]
-  m     = model()
-  pop   = {}
-  for _ in range(The.np*len(m.indep)): 
-    remember( itsAlive( m.any() ))
+  def makeSomeAnts(n) :
+    for _ in range(n):
+      remember( itsAlive( m.any() ))
+  makeSomeAnts( The.np*len(m.indep) )
   k   = The.k
   new = m.any()
   while k > 0:
@@ -303,7 +305,6 @@ def deadAnt(model):
       else:
         remember( itsAlive(new) )
         new = m.any()
-        
-      
-cmd('rand()')
+
+cmd()
 
