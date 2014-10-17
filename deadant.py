@@ -189,14 +189,14 @@ def Schaffer():
 
 class Columns:
   def __init__(i,factory,cols=[]):
+    cols      = [Meta(i)] + cols
     i.factory = factory
-    i.name = factory.__name__
-    i.cols=[Meta(i)]
-    i.nums=[]
-    i.syms=[]
-    i.objs=[]
+    i.name    = factory.__name__
+    i.nums    = []
+    i.syms    = []
+    i.objs    = []
     for pos,header in enumerate(cols):
-      header.col = pos + 1
+      header.col = pos 
       if isinstance(header,N): i.nums += [header]
       if isinstance(header,S): i.syms += [header]
       if isinstance(header,O): i.objs += [header]
