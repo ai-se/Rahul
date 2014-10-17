@@ -67,7 +67,9 @@ def cmd(com=The.start):
   if globals()["__name__"] == "__main__":
     if len(sys.argv) == 3:
       if sys.argv[1] == '--cmd':
-        com = sys.argv[2]
+        com = sys.argv[2] + '()'
+    if len(sys.argv) == 4:
+        com = sys.argv[2] + '(' + sys.argv[3] + ')'
     eval(com)
 
 class Close():
@@ -90,12 +92,12 @@ class Close():
   def close(i,x):
     return i.p(x) < The.tiny
 
-def _close():
-  seed(1)
+def _close(n=10000,p=2,rseed=None):
+  seed(rseed or The.seed)
   cl=Close()
-  for _ in xrange(10000):
+  for _ in xrange(n):
     cl += rand()*100
-  print(':p',cl.p(2),':close',cl.close(2))
+  print(':p',cl.p(p),':close',cl.close(p))
   print(map(lambda x: int(x[0]/x[1]) if x[1] else 0,zip(cl.sum,cl.n)))
 
 class Column:
