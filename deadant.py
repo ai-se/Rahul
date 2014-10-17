@@ -306,5 +306,5 @@ def deadAnt(model):
         remember( itsAlive(new) )
         new = m.any()
 
-cmd()
+cmd('_close()')
 
