@@ -55,7 +55,7 @@ class Close():
       if x > mu:
         return i.n[j]/i.n[0]
     return i.n[-1]/i.n[0]
-  def keep(i,x):
+  def __iadd__(i,x):
     for j in xrange(len(i.sum)):
       i.sum[j] += x
       i.n[j]   += 1
@@ -80,7 +80,8 @@ class N:
     i.hi = max(i.hi,x)
     return i
   def norm(i,x):
-    return (x - i.lo)/ (i.hi - i.lo + 0.00001)
+    tmp = (x - i.lo)/ (i.hi - i.lo + 0.00001)
+    return max(0,min(1,tmp))
   def dist(i,x,y):
     return i.norm(x) - i.norm(y)
   def fuse(i,x,w1,y,w2):
@@ -118,6 +119,9 @@ class O:
     i.f=f
     i.name= name or f.__name__
     i.n= N(col,least,most)
+  def any(i): return None
+  def fuse(i): return None
+  def nudge(i): return None
   def score(i,lst):
     x = lst[i.col]
     if x == None
@@ -129,53 +133,58 @@ class O:
   def better(i,x,y):
     return x > y if i.love else x < y
   def worse(i,x,y):
-      return x < y if i.love else x > y
-    for sym in i.syms: sym += lst[sym.col]
-  def evalute(i,row):
-    "defined by sub-class"
-    pass
+    return x < y if i.love else x > y
   
+def Meta:
+  id=0
+  def __init__(i,of,weight=1,dead=True):
+    i.weight, i.dead,i.of = weight,dead,of
+    i.id = Meta.id = Meta.id + 1
+  def any(i):
+    return Meta(i.of)
+  def fuse(i): return i.any()
+  def nudge(i): return i.any()
+  def __repr__(i):
+    return of.name+':'+\
+           'DEAD' if i.dead else 'ALIVE'+'*'\
+           i.weight
+
 def Schaffer():
   def f1(row): return row[0]**2
   def f2(row): return (row[0]-2)**2
-  return Columns([N(least=-4, most=4)
+  return Columns(Schaffer,
+                 [N(least=-4, most=4)
                  ,O(f=f1),
                  ,O(f=f2)
                  ])
 
 class Columns:
-  def __init__(i,cols=[]):
-    i.cols=[]
+  def __init__(i,factory,cols=[]):
+    i.factory = factory
+    i.name = factory.__name__
+    i.cols=[Meta(i)]
     i.nums=[]
     i.syms=[]
     i.objs=[]
     for pos,header in enumerate(cols):
-      header.col = pos
+      header.col = pos + 1
       if isinstance(header,N): i.nums += [header]
       if isinstance(header,S): i.syms += [header]
       if isinstance(header,O): i.objs += [header]
     i.indep = i.nums + i.syms
-    i.cache = {}
     i.cl    = Close()
   def any(i):
-    return [col.any() for col in i.indep] + ([None]*len(i.objs))
+    return [col.any() for col in i.cols]
   def __iadd__(i,lst)
-    for col in i.syms: col += lst[sym.col]
-    for col in i.nums: col += lst[sym.col]
+    for one in i.indep: one += lst[one.col]
   def score(i,lst):
     return [col.score(lst) for col in i.objs]
   def nudge(i,lst1,lst2):
-    #XXX what to do with old scores?
-    lst3 = i.any()
-    for x,y,indep in vals(lst1,lst2,i.indep):
-      lst3[indep.col] = indep.nudge(x,y)
-    return lst3
+    return [one.nudge(x,w1,y,w2) 
+            for x,y,one in vals(lst1,lst2,i.cols)]
   def fuse(i,lst1,w1,lst2,w2):
-    #XXX what to do with old scores?
-    lst3 = i.any()
-    for x,y,indep in vals(lst1,lst2,i.indep):
-      lst3[indep.col] = indep.fuse(x,w1,y,w2)
-    return lst3
+    return [one.fuse(x,w1,y,w2) 
+            for x,y,one in vals(lst1,lst2,i.cols)]
   def fromHell(i):
     x,c = 0,0
     for col in i.obj():
@@ -192,93 +201,75 @@ class Columns:
       if obj.worse(x,y) : return False
       if obj.better(x,y): better = True
     return better
-  def dist(i,lst1,lst2):
-    id1=id(lst1)
-    id2=id(lst2)
-    if id1 > id2: id1,id2 = id2,id1
-    if (id1,id2) in i.cache:
-      return i.cache[(id1,id2)]
-    d = i.cache[(id1,id2)] = m.dist0(lst1,lst2)
-    i.cl += d
-    return d
-  def dist0(i,lst1,lst1):
-    c=d=0
+  def dist(i,lst1,lst2,old=False):
+    total,c = 0,0
     for x,y,indep in vals(lst1,lst2,i.indep):
-      d += indep.dist(x,y)**2
-      c += 1
-   return d**0.5/c**0.5
+      total += indep.dist(x,y)**2 
+      c     += 1
+    d= total**0.5/c**0.5
+    if not old: cl += d          
+    return d
 
 def vals(lst1,lst2,cols):
     for c in cols:
       yield lst1[c.cols],lst2[c.cols],c
 
-def swapped(doomed,new,pop):
-  for n,old in enumerate(pop):
-    if id(old) == id(doomed):
-      pop[n] = new
-      return True
-  error('oh hdear')
+def fromLine(a,b,c):
+    x = (a**2 + c**2 - b**2)/ (2*c)
+    return max(0,(a**2 - x**2))**0.5
+
+def neighbors(m,lst1,pop):
+  return sorted([(m.dist(lst1,lst2),lst2) 
+                 for lst2 in pop 
+                 if not lst1[0].id == lst2[0].id])
 
 def deadAnt(model):
   m     = model()
-  cache = {} # suck!
-  alive = {} # suck!
-  w     = {} # suck!
   np    = The.np*len(m.indep)
-  pop   = [m.any() for _ in range(np)]
-  def dead(lst):
-    return not id(lst) in alive
-  def itsAlive(lst):
-    alive[id(lst)] = lst
-  def itsDead(lst):
-    if id(lst) in alive:
-      del alive[id(lst)]
-  def neighbors(lst1):
-    return sorted([(m.dist(lst1,lst2),lst2) 
-                   for lst2 in pop 
-                   if not id(lst1) == id(lst2)])
-  def cosine(a,b,old1,old2):
-    c = m.dist(old1,old2)
-    x = (a**2 + c**2 - b**2)/ (2*c)
-    return (a**2 - max(0,x)**2)**0.5
+  pop   = {}
+  for _ in range(np): keep(m.any())
+  def keep(new):
+    m += new
+    pop[new[0].id] = new
   def fuse(lst1,lst2):
-    w[id(lst1)] = w1 = w.get(id(lst1),1)
-    w[id(lst2)] = w2 = w.get(id(lst2),1)
+    w1 = lst1[0].weight
+    w2 = lst2[0].weight
     lst3 = m.fuse(lst1,w1,lst2,w2)
-    del w[id(lst1)]; itsDead(lst1)
-    del w[id(lst2)]; itsDead(lst2)
-    w[id(lst3)] = w1 + w2
+    lst3[0].weight = w1+w2
     return lst3
   k   = The.k
   new = m.any()
   while k > 0:
     k -= 1
-    (a,old1),(b,old2) = neighbors(new)[:1]
+    (a,old1),(b,old2) = neighbors(m,new,pop.values())[:1]
     close1 = m.cl.close(a)
     close2 = m.cl.close(b)
     if not close1:
-      y = cosine(a,b,old1,old2)
+      y = fromLine(a,b,m.dist(old1,old2,old=True))
       if not m.cl close(y):
-        pop += [new]
-        itsAlive(new)
+        keep(new)
+        new[0].dead = False
         new = m.any()
         continue
-    if dead(old1):
-          swapped(old1,fuse(new,old1))
-          new = m.any()
+    if old1[0].dead:
+      tmp = fuse(new,old1)
+      del pop[old[0].id]
+      pop[ tmp[0].id ] = tmp
+      new = m.any()
     else:
-          if m.dominates(new,old1):
-            itsDead(old1)
-            # do i fuse? no!
-            new = m.nudge(old1,new)
-            k *= The.kMore
-          elif m.dominates(old1,new):
-            # do i fuse? no!
-            new = m.nudge(new,old1)
-            k *= The.kMore
-          else:
-            pop += [new]
-            new = m.any()
+      if m.dominates(new,old1):
+        k *= The.kMore
+        old1[0].dead = True
+        new[0].dead  = False
+        keep(new)
+        new = m.nudge(old1,new)
+      elif m.dominates(old1,new):
+        keep(new)
+        new = m.nudge(new,old1)
+      else:
+        new[0].dead = False
+        keep(new)
+        new = m.any()
         
                  
     
