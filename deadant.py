@@ -5,16 +5,18 @@ sys.dont_write_bytecode =True
 def settings(**d): return o(
   name="DEADANT v0.1",
   what="A stochastic multi-objective tabu active learner",
-  synopsis="""DeadAnt's tabu memory is a trail of 'dead ants' 
-           in regions known to be sub-optimal. Newly generated 
-           solutions are only evaluated if are not 'close' to 
-           a dead ant, where 'close' is learned dynamically (and
-           if they are close to ad dead ant, they become dead as well).
-           To reduce the overhead of searching through the ants, 
-           pairs of close dead ants are incrementally fused
-           together. To better explore good solutions,
-           if a candidate is dominated by a live ant, then 
-           the candidate is nudged towards the better ant.""",
+  synopsis="""
+    DeadAnt's tabu memory is a trail of 'dead ants' in
+    regions known to be sub-optimal. Landing too close
+    to a dead ant will 'kill' any new candidate.  To
+    reduce the overhead of searching through the ants,
+    pairs of close dead ants are incrementally fused
+    together.  To better explore good solutions, if a
+    candidate is dominated by a live ant, then the
+    candidate is nudged towards the better ant. This is
+    an active learner since new solutions are only
+    evaluated if are not 'close' to a dead ant (where
+    'close' is learned dynamically).""",
   _logo="""
              "=.
              "=. \ 
@@ -100,14 +102,14 @@ def _close(n=10000,p=2,rseed=None):
   print(':p',cl.p(p),':close',cl.close(p))
   print(map(lambda x: int(x[0]/x[1]) if x[1] else 0,zip(cl.sum,cl.n)))
 
-class Column:
+class Col:
   def any(i): return None
   def fuse(i,x,w1,y,w2): return None
   def nudge(i,x,y): return None
   def dist(i,x,y): return 0
   def norm(i,x) : return x
 
-class N(Column):
+class N(Col):
   "For nums"
   def __init__(i,col=0,least=0,most=1,name=None):
     i.col=col
@@ -134,7 +136,7 @@ class N(Column):
     if tmp < i.least: tmp = i.most
     return tmp
     
-class S(Column):
+class S(Col):
   "For syms"
   def __init__(i,col=0,items=[],name=None):
     i.index = frozenset(items)
@@ -151,7 +153,7 @@ class S(Column):
   def nudge(i,x,y):
     return x if rand() < 0.33 else y
 
-class O(Column):
+class O(Col):
   "for objectives"
   def __init__(i,col=0,f=lambda x: 1,name=None,
     love=False # for objectives to maximize, set love to True
@@ -173,7 +175,7 @@ class O(Column):
   def worse(i,x,y):
     return x < y if i.love else x > y
   
-class Meta(Column):
+class Meta(Col):
   id=0
   def __init__(i,of,weight=1,dead=True):
     i.weight, i.dead,i.of = weight,dead,of
@@ -193,21 +195,20 @@ class Meta(Column):
 def Schaffer():
   def f1(row): return row[0]**2
   def f2(row): return (row[0]-2)**2
-  return Columns(Schaffer,
+  return Cols(Schaffer,
                  [N(least=-4, most=4)
                  ,O(f=f1)
                  ,O(f=f2)
                  ])
 
-class Columns:
+class Cols:
   def __init__(i,factory,cols=[]):
-    cols      = [Meta(i)] + cols
     i.factory = factory
     i.name    = factory.__name__
     i.nums    = []
     i.syms    = []
     i.objs    = []
-    for pos,header in enumerate(cols):
+    for pos,header in enumerate([Meta(i)] + cols):
       header.col = pos 
       if isinstance(header,N): i.nums += [header]
       if isinstance(header,S): i.syms += [header]
@@ -267,8 +268,8 @@ def neighbors(m,lst1,pop):
                  if not lst1[0].id == lst2[0].id])
 
 def deadAnt(model):
-  m     = model()
-  pop   = {}
+  m   = model()
+  pop = {}
   def remember(new): m += new; pop[ new[0].id ]= new
   def itsAlive(lst): lst[0].dead = False; return lst
   def itsDead(lst) : lst[0].dead = True;  return lst
@@ -296,19 +297,17 @@ def deadAnt(model):
       itsGone(old)
       remember( itsDead(new) )
       new = m.any()
-      continue
-    if m.dominates(new,old):
+    elif  m.dominates(new,old):
       k *= The.kMore
       itsDead(old)
       remember( itsAlive(new) )
       new = m.nudge(old,new)
-      continue
-    if m.dominates(old,new):
+    elif m.dominates(old,new):
       remember( itsDead(new) )
       new = m.nudge(new,old)
-      continue
-    remember( itsAlive(new) )
-    new = m.any()
+    else:
+      remember( itsAlive(new) )
+      new = m.any()
 
 cmd('_close()')
 
