@@ -290,23 +290,25 @@ def deadAnt(model):
         remember( itsAlive(new) )
         new = m.any()
         continue
+      #else close enough to reflect on old
     if old[0].dead:
       new = fuse(new,old)
       itsGone(old)
       remember( itsDead(new) )
       new = m.any()
-    else:
-      if m.dominates(new,old):
-        k *= The.kMore
-        itsDead(old)
-        remember( itsAlive(new) )
-        new = m.nudge(old,new)
-      elif m.dominates(old,new):
-        remember( itsDead(new) )
-        new = m.nudge(new,old)
-      else:
-        remember( itsAlive(new) )
-        new = m.any()
+      continue
+    if m.dominates(new,old):
+      k *= The.kMore
+      itsDead(old)
+      remember( itsAlive(new) )
+      new = m.nudge(old,new)
+      continue
+    if m.dominates(old,new):
+      remember( itsDead(new) )
+      new = m.nudge(new,old)
+      continue
+    remember( itsAlive(new) )
+    new = m.any()
 
 cmd('_close()')
 
