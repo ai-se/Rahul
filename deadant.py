@@ -87,8 +87,14 @@ class Close():
     return x
   def close(i,x):
     return i.p(x) < The.tiny
- 
-class N:
+
+class Column:
+  def any(i): return None
+  def fuse(i,x,w1,y,w2): return None
+  def nudge(i,x,y): return None
+  def dist(i,x,y): return 0
+
+class N(Column):
   "For nums"
   def __init__(i,col=0,least=0,most=1,name=None):
     i.col=col
@@ -115,7 +121,7 @@ class N:
     if tmp < i.least: tmp = i.most
     return tmp
     
-class S:
+class S(Column):
   "For syms"
   def __init__(i,col=0,items=[],name=None):
     i.index = frozenset(items)
@@ -133,8 +139,7 @@ class S:
   def nudge(i,x,y):
     return x if rand() < 0.33 else y
 
-
-class O:
+class O(Column):
   "for objectives"
   def __init__(i,col=0,f=lambda x: 1,name=None,
     love=False # for objectives to maximize, set love to True
@@ -142,9 +147,6 @@ class O:
     i.f=f
     i.name= name or f.__name__
     i.n= N(col,least,most)
-  def any(i): return None
-  def fuse(i): return None
-  def nudge(i): return None
   def score(i,lst):
     x = lst[i.col]
     if x == None:
@@ -159,7 +161,7 @@ class O:
   def worse(i,x,y):
     return x < y if i.love else x > y
   
-class Meta:
+class Meta(Column):
   id=0
   def __init__(i,of,weight=1,dead=True):
     i.weight, i.dead,i.of = weight,dead,of
