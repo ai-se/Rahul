@@ -201,13 +201,13 @@ class Columns:
       if obj.worse(x,y) : return False
       if obj.better(x,y): better = True
     return better
-  def dist(i,lst1,lst2,old=False):
+  def dist(i,lst1,lst2,peeking=False):
     total,c = 0,0
     for x,y,indep in vals(lst1,lst2,i.indep):
       total += indep.dist(x,y)**2 
       c     += 1
     d= total**0.5/c**0.5
-    if not old: cl += d          
+    if not peeking: cl += d          
     return d
 
 def vals(lst1,lst2,cols):
@@ -227,10 +227,16 @@ def deadAnt(model):
   m     = model()
   np    = The.np*len(m.indep)
   pop   = {}
-  for _ in range(np): keep(m.any())
+  for _ in range(np): 
+    new= m.any()
+    itsAlive(new)
+    keep(new)
   def keep(new):
     m += new
-    pop[new[0].id] = new
+    pop[ new[0].id ] = new
+  def itsAlive(lst) : lst[0].dead = False
+  def itsDead(lst)  : lst[0].dead = True
+  def itsGone(lst)  : del pop[lst[0].id]
   def fuse(lst1,lst2):
     w1 = lst1[0].weight
     w2 = lst2[0].weight
@@ -241,33 +247,37 @@ def deadAnt(model):
   new = m.any()
   while k > 0:
     k -= 1
-    (a,old1),(b,old2) = neighbors(m,new,pop.values())[:1]
+    (a,old),(b,other) = neighbors(m,new,
+                                  pop.values())[:1]
     close1 = m.cl.close(a)
     close2 = m.cl.close(b)
     if not close1:
-      y = fromLine(a,b,m.dist(old1,old2,old=True))
-      if not m.cl close(y):
+      c = m.dist(old,other,peeking=True)
+      y = fromLine(a,b,c)
+      if not m.cl.close(y):
+        itsAlive(new)
         keep(new)
-        new[0].dead = False
         new = m.any()
         continue
-    if old1[0].dead:
-      tmp = fuse(new,old1)
-      del pop[old[0].id]
-      pop[ tmp[0].id ] = tmp
+    if old[0].dead:
+      new = fuse(new,old)
+      itsGone(old)
+      itsDead(new)
+      keep(new)
       new = m.any()
     else:
-      if m.dominates(new,old1):
+      if m.dominates(new,old):
         k *= The.kMore
-        old1[0].dead = True
-        new[0].dead  = False
+        itsDead(old)
+        itsAlive(new)
         keep(new)
-        new = m.nudge(old1,new)
-      elif m.dominates(old1,new):
+        new = m.nudge(old,new)
+      elif m.dominates(old,new):
+        itsDead(new)
         keep(new)
-        new = m.nudge(new,old1)
+        new = m.nudge(new,old)
       else:
-        new[0].dead = False
+        itsAlive(new)
         keep(new)
         new = m.any()
         
