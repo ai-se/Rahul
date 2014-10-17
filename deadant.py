@@ -2,20 +2,20 @@ from __future__ import division,print_function
 import sys,random
 sys.dontWriteByteCode=True
 
-rand= random.random
-seed= random.seed
-
-class o:
-  def __init__(i,**d): i.update(**d)
-  def update(i,**d): i.__dict__.update(**d); return i
-    
 def settings(**d): return o(
-    seed=1,
-    np=10,
-    k=100,
-    kMore=1.1,
-    tiny=0.05,
-    _logo="""
+  name="DEADANT v0.1",
+  what="A stochastic multi-objective tabu active learner",
+  synopsis="""DeadAnt's tabu memory is a trail of 'dead ants' 
+           in regions known to be sub-optimal. Newly generated 
+           solutions are only evaluated if are not 'close' to 
+           a dead ant (where 'close' is learned dynamically);
+           otherwise, they are declared to be another 'dead ant'.
+           To reduce the overhead of searching through the ants, 
+           old dead ants are incrementally fused into a few
+           cluster centroids. To better explore good solutions,
+           if a candidate is dominated by a live ant, then 
+           the candidate is nudged towards the better ant.""",
+  _logo="""
              "=.
              "=. \ 
                 \ \ 
@@ -42,10 +42,33 @@ def settings(**d): return o(
    LGB   ||    _.-_/|            ||      |\_.-_
      _.-_/|   /_.-._/            |\_.-_  \_.-._\ 
     /_.-._/                      \_.-._\ 
-  """).update(**d)
-  
+    """,
+  author="Tim Menzies, Rahul Krishna",
+  copyleft="(c) 2014, MIT license, http://goo.gl/3UYBp",
+  seed=1,
+  np=10,
+  k=100,
+  kMore=1.1,
+  tiny=0.05,
+  start='The._logo'
+  ).update(**d)
+
+class o:
+  def __init__(i,**d): i.update(**d)
+  def update(i,**d): i.__dict__.update(**d); return i
+
+rand= random.random
+seed= random.seed
+
 The= settings()
-  
+
+def cmd(com=The.start):
+  if globals()["__name__"] == "__main__":
+    if len(sys.argv) == 3:
+      if sys.argv[1] == '--cmd':
+        com = sys.argv[2]
+    print(eval(com))
+
 class Close():
   def __init__(i):
     i.sum, i.n = [0.0]*32, [0.0]*32
@@ -143,7 +166,10 @@ class Meta:
     i.id = Meta.id = Meta.id + 1
   def any(i):
     return Meta(i.of)
-  def fuse(i): return i.any()
+  def fuse(i,x,w1,y,w2): 
+    tmp = i.any()
+    tmp.weight = w1+w2
+    return tmp
   def nudge(i): return i.any()
   def __repr__(i):
     return of.name + ':' \
@@ -183,7 +209,9 @@ class Columns:
   def nudge(i,lst1,lst2):
     return [one.nudge(x,w1,y,w2) 
             for x,y,one in vals(lst1,lst2,i.cols)]
-  def fuse(i,lst1,w1,lst2,w2):
+  def fuse(i,lst1,lst2):
+    w1= lst1[0].weight
+    w2= lst2[0].weight
     return [one.fuse(x,w1,y,w2) 
             for x,y,one in vals(lst1,lst2,i.cols)]
   def fromHell(i):
@@ -225,25 +253,14 @@ def neighbors(m,lst1,pop):
                  if not lst1[0].id == lst2[0].id])
 
 def deadAnt(model):
+  def remember(new): m += new; pop[ new[0].id ]= new
+  def itsAlive(lst): lst[0].dead = False; return lst
+  def itsDead(lst) : lst[0].dead = True;  return lst
+  def itsGone(lst) : del pop[lst[0].id]
   m     = model()
-  np    = The.np*len(m.indep)
   pop   = {}
-  for _ in range(np): 
-    new= m.any()
-    itsAlive(new)
-    keep(new)
-  def keep(new):
-    m += new
-    pop[ new[0].id ] = new
-  def itsAlive(lst) : lst[0].dead = False
-  def itsDead(lst)  : lst[0].dead = True
-  def itsGone(lst)  : del pop[lst[0].id]
-  def fuse(lst1,lst2):
-    w1 = lst1[0].weight
-    w2 = lst2[0].weight
-    lst3 = m.fuse(lst1,w1,lst2,w2)
-    lst3[0].weight = w1+w2
-    return lst3
+  for _ in range(The.np*len(m.indep)): 
+    remember( itsAlive( m.any() ))
   k   = The.k
   new = m.any()
   while k > 0:
@@ -254,32 +271,27 @@ def deadAnt(model):
       c = m.dist(old,other,peeking=True)
       y = fromLine(a,b,c)
       if not m.cl.close(y):
-        itsAlive(new)
-        keep(new)
+        remember( itsAlive(new) )
         new = m.any()
         continue
     if old[0].dead:
       new = fuse(new,old)
       itsGone(old)
-      itsDead(new)
-      keep(new)
+      remember( itsDead(new) )
       new = m.any()
     else:
       if m.dominates(new,old):
         k *= The.kMore
         itsDead(old)
-        itsAlive(new)
-        keep(new)
+        remember( itsAlive(new) )
         new = m.nudge(old,new)
       elif m.dominates(old,new):
-        itsDead(new)
-        keep(new)
+        remember( itsDead(new) )
         new = m.nudge(new,old)
       else:
-        itsAlive(new)
-        keep(new)
+        remember( itsAlive(new) )
         new = m.any()
         
-                 
-    
+      
+cmd('rand()')
 
