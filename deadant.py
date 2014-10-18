@@ -203,11 +203,8 @@ def Schaffer():
 
 class Cols:
   def __init__(i,factory,cols=[]):
-    i.factory = factory
-    i.name    = factory.__name__
-    i.nums    = []
-    i.syms    = []
-    i.objs    = []
+    i.factory, i.name  = factory, factory.__name__
+    i.nums = [];  i.syms = []; i.objs = []
     for pos,header in enumerate([Meta(i)] + cols):
       header.col = pos 
       if isinstance(header,N): i.nums += [header]
@@ -215,12 +212,9 @@ class Cols:
       if isinstance(header,O): i.objs += [header]
     i.indep = i.nums + i.syms
     i.cl    = Close()
-  def any(i):
-    return [col.any() for col in i.cols]
-  def __iadd__(i,lst):
-    for one in i.indep: one += lst[one.col]
-  def score(i,lst):
-    return [col.score(lst) for col in i.objs]
+  def any(i)       : return [z.any() for z in i.cols]
+  def __iadd__(i,l): for z in i.indep:z+= l[z.col]
+  def score(i,l): return [z.score(l) for z in i.objs]
   def nudge(i,lst1,lst2):
     return [one.nudge(x,w1,y,w2) 
             for x,y,one in vals(lst1,lst2,i.cols)]
@@ -230,12 +224,11 @@ class Cols:
     return [one.fuse(x,w1,y,w2) 
             for x,y,one in vals(lst1,lst2,i.cols)]
   def fromHell(i):
-    x,c = 0,0
-    for col in i.obj():
+    x,c = 0, len(i.objs)
+    for col in i.objs:
       tmp = col.height()
       tmp = tmp if col.love else 1 - tmp
       x += tmp**2
-      c += 1
     return x**0.5/c**0.5
   def dominates(i,lst1,lst2):
     i.score(lst1)
@@ -246,10 +239,9 @@ class Cols:
       if obj.better(x,y): better = True
     return better
   def dist(i,lst1,lst2,peeking=False):
-    total,c = 0,0
+    total,c = 0,len(i.indep)
     for x,y,indep in vals(lst1,lst2,i.indep):
       total += indep.dist(x,y)**2 
-      c     += 1
     d= total**0.5/c**0.5
     if not peeking: cl += d          
     return d
