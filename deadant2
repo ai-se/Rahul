@@ -1,3 +1,5 @@
+#!/usr/bin/env python 
+
 from __future__ import division,print_function
 import sys,random
 sys.dont_write_bytecode =True
@@ -54,10 +56,11 @@ def settings(**d): return o(
   tiny=0.05,
   start='print(The._logo)',
   closeEnough=2,
-  de=o(np=10,
+  de=o(np=5,
+       epsilon=1.01,
        f=0.3,
        cf=0.4,
-       lives=9)
+       lives=100)
   ).update(**d)
 
 class o:
@@ -121,7 +124,7 @@ class Col:
   def nudge(i,x,y): return None
   def dist(i,x,y): return 0
   def norm(i,x) : return x
-  def extrapolate(x,y,z): return None
+  def extrapolate(i,x,y,z): return None
 
 class N(Col):
   "For nums"
@@ -131,10 +134,14 @@ class N(Col):
     i.least, i.most=least,most  
     i.lo,i.hi = 10**32, -1*10**32
   def extrapolate(i,x,y,z):
+    f=The.de.f
     return x + f*(y - z) if rand() < The.de.cf else x    
   def any(i):
-    return i.least + rand()*(i.most - i.least)
+    return max(i.least,
+               min(i.most,
+                   i.least + rand()*(i.most - i.least)))
   def __iadd__(i,x):
+    #print("x",x,"least",i.least,"most",i.most)
     assert x >= i.least and x <= i.most
     i.lo = min(i.lo,x)
     i.hi = max(i.hi,x)
@@ -181,6 +188,7 @@ class O(Col):
     love=False # for objectives to maximize, set love to True
     ):
     i.f=f
+    i.love=love
     i.name= name or f.__name__
     i.n= N(col=col,least= -10**32, most=10**32)
   def score(i,lst):
@@ -190,10 +198,9 @@ class O(Col):
         i.n += x
         lst[i.col] = x
     return x
-  def height(i):
-    return i.n.norm(i._score)
   def better(i,x,y):
-    return x > y if i.love else x < y
+    e = The.de.epsilon
+    return x > y*e if i.love else x < y/e
   def worse(i,x,y):
     return x < y if i.love else x > y
   
@@ -211,7 +218,7 @@ class Meta(Col):
   def nudge(i): return i.any()
   def __repr__(i):
     return i.of.name + ':' \
-           + 'DEAD' if i.dead else 'ALIVE' \
+           + ('DEAD' if i.dead else 'ALIVE') \
            + '*' + str(i.weight)
 
 def Schaffer():
@@ -260,11 +267,12 @@ class Cols:
     w2= lst2[0].weight
     return [one.fuse(x,w1,y,w2) 
             for x,y,one in vals(lst1,lst2,i.cols)]
-  def fromHell(i):
+  def fromHell(i,lst):
     x,c = 0, len(i.objs)
-    for col in i.objs:
-      tmp = col.height()
-      tmp = tmp if col.love else 1 - tmp
+    for header in i.objs:
+      val = header.col
+      tmp = header.norm(val)
+      tmp = tmp if header.love else 1 - tmp
       x += tmp**2
     return x**0.5/c**0.5
   def dominates(i,lst1,lst2):
@@ -285,11 +293,11 @@ class Cols:
 
 def vals(lst1,lst2,cols):
   for c in cols:
-    yield lst1[c.cols],lst2[c.cols],c
+    yield lst1[c.col],lst2[c.col],c
 
 def vals3(lst1,lst2,lst3,cols):
   for c in cols:
-    yield lst1[c.cols],lst2[c.cols],lst3[c.cols],c
+    yield lst1[c.col],lst2[c.col],lst3[c.col],c
 
 def fromLine(a,b,c):
     x = (a**2 + c**2 - b**2)/ (2*c)
@@ -342,15 +350,13 @@ def deadAnt(model):
       remember( itsAlive(new) )
       new = m.any()
 
-def one234(one, pop, f=lambda x:x): 
+def one234(one, pop, f=lambda x:id(x)): 
   def oneOther():
     x = any(pop)
-
     while f(x) in seen: 
       x = any(pop)
     seen.append( f(x) )
     return x
-  print(one)
   seen  = [ f(one) ]
   return oneOther(), oneOther(), oneOther()
 
@@ -359,9 +365,8 @@ def _one234():
   for _ in range(10):
     print(one234(1,range(1000)))
 
-
-
-def de(model):
+def de(model=Schaffer):
+  seed(The.seed)
   m   = model()
   frontier = []
   def remember(new): 
@@ -373,17 +378,21 @@ def de(model):
   lives = The.de.lives
   while lives > 0:
     say(lives)
-    lives -= 1
     better = False
     for pos,l1 in enumerate(frontier):
-      print(l1[0].id)
-      l2, l3, l4 = one234(l1,frontier,lambda x:x[0].id)
+      lives -= 1
+      l2, l3, l4 = one234(l1,frontier)
       candidate = m.extrapolate(l2,l3,l4)
       if m.dominates(candidate,l1):
-          better = True
-          frontier[pos] = candidate
-    if better:
-       lives += 1
+        print(">>",m.fromHell(candidate) - m.fromHell(l1))
+        better = True
+        frontier[pos] = candidate
+      elif m.dominates(l1,candidate):
+        say("_")
+      else:
+        say(".")
+        remember(candidate)
+    #if better:
+     #  lives += 1
 
 cmd('_close()')
-
