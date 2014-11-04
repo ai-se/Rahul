@@ -1,7 +1,11 @@
 ### Deadant
+
 - Bugfixes
 - Obtained the pareto frontier for the deadant and de
+- Fonseca, Kursawe coded up.
+- Currently working on the XOMO model.
 
+### Pareto Frontiers
 Dead Ant:
 ```
 [Schaffer:ALIVE*1, 1.7025883365870458, None, None]
