@@ -1,3 +1,15 @@
-.project
-.pydevproject
-.pyc
+# PyDev files
+*.project
+*.pydevproject
+*.pyc
+
+# Mac IDE files
+*.swp
+*~
+*(Autosaved).rtfd/
+Backup[ ]of[ ]*.pages/
+Backup[ ]of[ ]*.key/
+Backup[ ]of[ ]*.numbers/
+
+# Mac finder files and hidden folders
+.DS_Store
