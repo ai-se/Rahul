@@ -1,305 +1,1 @@
-from __future__ import division,print_function
-import sys,random
-sys.dont_write_bytecode =True
-
-def settings(**d): return o(
-  name="DEADANT v0.1",
-  what="A stochastic multi-objective tabu active learner",
-  synopsis="""
-    DeadAnt's tabu memory is a trail of 'dead ants' in
-    regions known to be sub-optimal. Landing too close
-    to a dead ant will 'kill' any new candidate.  To
-    reduce the overhead of searching through the ants,
-    pairs of close dead ants are incrementally fused
-    together.  To better explore good solutions, if a
-    candidate is dominated by a live ant, then the
-    candidate is nudged towards the better ant. This is
-    an active learner since new solutions are only
-    evaluated if are not 'close' to a dead ant (where
-    'close' is learned dynamically).""",
-  _logo="""
-             "=.
-             "=. \ 
-                \ \ 
-             _,-=\/=._        _.-,_
-            /         \      /=-._ "-.
-           |=-./~\___/~\    / How `-._\ 
-           |   \o/   \o/   /  to      /
-            \_   `~~~;/    |  Dodge   |
-              `~,._,-'    /   Dead   /
-                 | |      =-._Things/
-             _,-=/ \=-._     /|`-._/
-           //           \\   )\ 
-          /|    I See   |)_.'/
-         //|    Dead    |\_."   _.-\ 
-        (|  \   People /    _.`=    \ 
-        ||   ":_    _.;"_.-;"   _.-=.:
-     _-."/    / `-."\_."        =-_.;\ 
-    `-_./   /             _.-=.    / \\ 
-           |              =-_.;\ ."   \\ 
-           \                   \\/     \\ 
-           /\_                .'\\      \\ 
-          //  `=_         _.-"   \\      \\ 
-         //      `~-.=`"`'       ||      ||
-   LGB   ||    _.-_/|            ||      |\_.-_
-     _.-_/|   /_.-._/            |\_.-_  \_.-._\ 
-    /_.-._/                      \_.-._\ 
-    """,
-  author="Tim Menzies, Rahul Krishna",
-  copyleft="(c) 2014, MIT license, http://goo.gl/3UYBp",
-  seed=1,
-  np=10,
-  k=100,
-  kMore=1.1,
-  tiny=0.05,
-  start='print(The._logo)',
-  closeEnough=2
-  ).update(**d)
-
-class o:
-  def __init__(i,**d): i.update(**d)
-  def update(i,**d): i.__dict__.update(**d); return i
-
-rand= random.random
-seed= random.seed
-
-The= settings()
-
-def cmd(com=The.start):
-  if globals()["__name__"] == "__main__":
-    if len(sys.argv) == 3:
-      if sys.argv[1] == '--cmd':
-        com = sys.argv[2] + '()'
-    if len(sys.argv) == 4:
-        com = sys.argv[2] + '(' + sys.argv[3] + ')'
-    eval(com)
-
-class Close():
-  def __init__(i):
-    i.sum, i.n = [0]*32, [0]*32
-  def p(i,x):
-    for j in xrange(len(i.sum)):
-      mu = i.sum[j] / i.n[j]
-      if x > mu:
-        return i.n[j]/i.n[0]
-    return i.n[-1]/i.n[0]
-  def __iadd__(i,x):
-    for j in xrange(len(i.sum)):
-      i.sum[j] += x
-      i.n[j]   += 1
-      mu        = i.sum[j] / i.n[j]
-      if x >= mu: return i
-      if i.sum[j] < The.closeEnough: return i
-    return i
-  def close(i,x):
-    return i.p(x) < The.tiny
-
-def _close(n=10000,p=2,rseed=None):
-  seed(rseed or The.seed)
-  cl=Close()
-  for _ in xrange(n):
-    cl += rand()*100
-  print(':p',cl.p(p),':close',cl.close(p))
-  print(map(lambda x: int(x[0]/x[1]) if x[1] else 0,zip(cl.sum,cl.n)))
-
-class Col:
-  def any(i): return None
-  def fuse(i,x,w1,y,w2): return None
-  def nudge(i,x,y): return None
-  def dist(i,x,y): return 0
-  def norm(i,x) : return x
-
-class N(Col):
-  "For nums"
-  def __init__(i,col=0,least=0,most=1,name=None):
-    i.col=col
-    i.name=None
-    i.least, i.most=least,most  
-    i.lo,i.hi = 10**32, -1*10**32
-  def any(i):
-    return i.least + rand()*(i.most - i.least)
-  def __iadd__(i,x):
-    assert x >= i.least and x <= i.most
-    i.lo = min(i.lo,x)
-    i.hi = max(i.hi,x)
-    return i
-  def norm(i,x):
-    tmp = (x - i.lo)/ (i.hi - i.lo + 0.00001)
-    return max(0,min(1,tmp))
-  def dist(i,x,y):
-    return i.norm(x) - i.norm(y)
-  def fuse(i,x,w1,y,w2):
-    return (x*w1 + y*w2)/(w1+w2)
-  def nudge(i,x,y):
-    tmp = x + rand()*1.5*(y-x)
-    if tmp > i.most : tmp = i.least
-    if tmp < i.least: tmp = i.most
-    return tmp
-    
-class S(Col):
-  "For syms"
-  def __init__(i,col=0,items=[],name=None):
-    i.index = frozenset(items)
-    i.items = items
-    i.col=col
-    i.name=name 
-  def any(i):
-    return random.choice(i.items)
-  def __iadd__(i,x): 
-    assert x in i.index
-  def dist(i,x,y): return 0 if x == y else 0
-  def fuse(i,x,w1,y,w2):
-    return x if rand() <= w1/(w1+w2) else y
-  def nudge(i,x,y):
-    return x if rand() < 0.33 else y
-
-class O(Col):
-  "for objectives"
-  def __init__(i,col=0,f=lambda x: 1,name=None,
-    love=False # for objectives to maximize, set love to True
-    ):
-    i.f=f
-    i.name= name or f.__name__
-    i.n= N(col,least,most)
-  def score(i,lst):
-    x = lst[i.col]
-    if x == None:
-        x = i.f(row)
-        i.n += x
-        lst[i.col] = x
-    return x
-  def height(i):
-    return i.n.norm(i._score)
-  def better(i,x,y):
-    return x > y if i.love else x < y
-  def worse(i,x,y):
-    return x < y if i.love else x > y
-  
-class Meta(Col):
-  id=0
-  def __init__(i,of,weight=1,dead=True):
-    i.weight, i.dead,i.of = weight,dead,of
-    i.id = Meta.id = Meta.id + 1
-  def any(i):
-    return Meta(i.of)
-  def fuse(i,x,w1,y,w2): 
-    tmp = i.any()
-    tmp.weight = w1+w2
-    return tmp
-  def nudge(i): return i.any()
-  def __repr__(i):
-    return of.name + ':' \
-           + 'DEAD' if i.dead else 'ALIVE' \
-           + '*' + i.weight
-
-def Schaffer():
-  def f1(row): return row[0]**2
-  def f2(row): return (row[0]-2)**2
-  return Cols(Schaffer,
-                 [N(least=-4, most=4)
-                 ,O(f=f1)
-                 ,O(f=f2)
-                 ])
-
-class Cols:
-  def __init__(i,factory,cols=[]):
-    i.factory, i.name  = factory, factory.__name__
-    i.nums = [];  i.syms = []; i.objs = []
-    for pos,header in enumerate([Meta(i)] + cols):
-      header.col = pos 
-      if isinstance(header,N): i.nums += [header]
-      if isinstance(header,S): i.syms += [header]
-      if isinstance(header,O): i.objs += [header]
-    i.indep = i.nums + i.syms
-    i.cl    = Close()
-  def any(i)       : return [z.any() for z in i.cols]
-  def __iadd__(i,l): for z in .indep:z+= l[z.col]
-  def score(i,l): return [z.score(l) for z in i.objs]
-  def nudge(i,lst1,lst2):
-    return [one.nudge(x,w1,y,w2) 
-            for x,y,one in vals(lst1,lst2,i.cols)]
-  def fuse(i,lst1,lst2):
-    w1= lst1[0].weight
-    w2= lst2[0].weight
-    return [one.fuse(x,w1,y,w2) 
-            for x,y,one in vals(lst1,lst2,i.cols)]
-  def fromHell(i):
-    x,c = 0, len(i.objs)
-    for col in i.objs:
-      tmp = col.height()
-      tmp = tmp if col.love else 1 - tmp
-      x += tmp**2
-    return x**0.5/c**0.5
-  def dominates(i,lst1,lst2):
-    i.score(lst1)
-    i.score(lst2)
-    better=False
-    for x,y,obj in vals(lst1,lst2,i.objs):
-      if obj.worse(x,y) : return False
-      if obj.better(x,y): better = True
-    return better
-  def dist(i,lst1,lst2,peeking=False):
-    total,c = 0,len(i.indep)
-    for x,y,indep in vals(lst1,lst2,i.indep):
-      total += indep.dist(x,y)**2 
-    d= total**0.5/c**0.5
-    if not peeking: cl += d          
-    return d
-
-def vals(lst1,lst2,cols):
-    for c in cols:
-      yield lst1[c.cols],lst2[c.cols],c
-
-def fromLine(a,b,c):
-    x = (a**2 + c**2 - b**2)/ (2*c)
-    return max(0,(a**2 - x**2))**0.5
-
-def neighbors(m,lst1,pop):
-  return sorted([(m.dist(lst1,lst2),lst2) 
-                 for lst2 in pop 
-                 if not lst1[0].id == lst2[0].id])
-
-def deadAnt(model):
-  m   = model()
-  pop = {}
-  def remember(new): m += new; pop[ new[0].id ]= new
-  def itsAlive(lst): lst[0].dead = False; return lst
-  def itsDead(lst) : lst[0].dead = True;  return lst
-  def itsGone(lst) : del pop[lst[0].id]
-  def makeSomeAnts(n) :
-    for _ in range(n):
-      remember( itsAlive( m.any() ))
-  makeSomeAnts( The.np*len(m.indep) )
-  k   = The.k
-  new = m.any()
-  while k > 0:
-    k -= 1
-    (a,old),(b,other) = neighbors(m,new,
-                                  pop.values())[:1]
-    if not m.cl.close(a):
-      c = m.dist(old,other,peeking=True)
-      y = fromLine(a,b,c)
-      if not m.cl.close(y):
-        remember( itsAlive(new) )
-        new = m.any()
-        continue
-      #else close enough to reflect on old
-    if old[0].dead:
-      new = fuse(new,old)
-      itsGone(old)
-      remember( itsDead(new) )
-      new = m.any()
-    elif  m.dominates(new,old):
-      k *= The.kMore
-      itsDead(old)
-      remember( itsAlive(new) )
-      new = m.nudge(old,new)
-    elif m.dominates(old,new):
-      remember( itsDead(new) )
-      new = m.nudge(new,old)
-    else:
-      remember( itsAlive(new) )
-      new = m.any()
-
-cmd('_close()')
-
+#!/usr/bin/env pythonfrom __future__ import division, print_functionimport sys, random; import os, pdb, math, numpy as np_pwd=os.getcwd()from re import searchsys.path.insert(0, '/Users/rkrsn/git/axe/axe')sys.path.insert(1, _pwd+'/Models/')from models1  import *import sk; rdivDemo=sk.rdivDemosys.dont_write_bytecode = Trueexp=math.edef settings(**d): return o(  name="DEADANT v0.1",  what="A stochastic multi-objective tabu active learner",  synopsis="""    DeadAnt's tabu memory is a trail of 'dead ants' in    regions known to be sub-optimal. Landing too close    to a dead ant will 'kill' any new candidate.  To    reduce the overhead of searching through the ants,    pairs of close dead ants are incrementally fused    together.  To better explore good solutions, if a    candidate is dominated by a live ant, then the    candidate is nudged towards the better ant. This is    an active learner since new solutions are only    evaluated if are not 'close' to a dead ant (where    'close' is learned dynamically).""",  _logo="""             "=.             "=. \                 \ \              _,-=\/=._        _.-,_            /         \      /=-._ "-.           |=-./~\___/~\    / How `-._\            |   \o/   \o/   /  to      /            \_   `~~~;/    |  Dodge   |              `~,._,-'    /   Dead   /                 | |      =-._Things/             _,-=/ \=-._     /|`-._/           //           \\   )\           /|    I See   |)_.'/         //|    Dead    |\_."   _.-\         (|  \   People /    _.`=    \         ||   ":_    _.;"_.-;"   _.-=.:     _-."/    / `-."\_."        =-_.;\     `-_./   /             _.-=.    / \\            |              =-_.;\ ."   \\            \                   \\/     \\            /\_                .'\\      \\           //  `=_         _.-"   \\      \\          //      `~-.=`"`'       ||      ||   LGB   ||    _.-_/|            ||      |\_.-_     _.-_/|   /_.-._/            |\_.-_  \_.-._\     /_.-._/                      \_.-._\     """,  author="Tim Menzies, Rahul Krishna",  copyleft="(c) 2014, MIT license, http://goo.gl/3UYBp",  seed=1,  np=10,  k=100,  kMore=1,  tiny=0.05,  start='print(The._logo)',  closeEnough=2,  de=o(np=5,       epsilon=1.01,       f=0.3,       cf=0.4,       lives=100)  ).update(**d)def say(lst): sys.stdout.write(lst) class o:  def __init__(self, **d): self.update(**d)  def update(self, **d): self.__dict__.update(**d); return selfrand = random.randomseed = random.seedany = random.choiceexp = math.expdef say(*lst):  sys.stdout.write(' '.join(map(str, lst)))  sys.stdout.flush()def sayln(*lst):  say(*lst); print("")def _say(): sayln(1, 2, 3, 4)The = settings()def cmd(com=The.start):  if globals()["__name__"] == "__main__":    if len(sys.argv) == 3:      if sys.argv[1] == '--cmd':        com = sys.argv[2] + '()'    if len(sys.argv) == 4:        com = sys.argv[2] + '(' + sys.argv[3] + ')'    eval(com)class Close():  def __init__(self):    self.sum, self.n = [0] * 32, [0] * 32  def p(self, x):    for j in xrange(len(self.sum)):      mu = self.sum[j] / self.n[j] if self.n[j] else 0      if x > mu:        return self.n[j] / self.n[0]    return self.n[-1] / self.n[0]  def __iadd__(self, x):    for j in xrange(len(self.sum)):      self.sum[j] += x      self.n[j] += 1      mu = self.sum[j] / self.n[j]      if x >= mu: return self      if self.sum[j] < The.closeEnough: return self    return self  def close(self, x):    return self.p(x) < The.tinydef _close(n=10000, p=2, rseed=None):  seed(rseed or The.seed)  cl = Close()  for _ in xrange(n):    cl += rand() * 100  print(':p', cl.p(p), ':close', cl.close(p))  print(map(lambda x: int(x[0] / x[1]) if x[1] else 0, zip(cl.sum, cl.n)))class Col:  def any(self): return None  def fuse(self, x, w1, y, w2): return None  def nudge(self, x, y): return None  def dist(self, x, y): return 0  def norm(self, x) : return x  def extrapolate(self, x, y, z): return Noneclass N(Col):  "For nums"  def __init__(self, col=0, least=0, most=1, name=None):    self.col = col    self.name = None    self.least, self.most = least, most      self.lo, self.hi = 10 ** 32, -1 * 10 ** 32  def extrapolate(self, x, y, z):    f = The.de.f    return x + f * (y - z) if rand() < The.de.cf else x      def any(self):    return max(self.least,               min(self.most,                   self.least + rand() * (self.most - self.least)))  def __iadd__(self, x):    #print("x",x,"least",self.least,"most",self.most)    #x = x if not x >= self.least else self.most if x >    self.lo = min(self.lo, x)    self.hi = max(self.hi, x)    return self  def norm(self, x):    tmp = (x - self.lo) / (self.hi - self.lo + 0.00001)    return max(0, min(1, tmp))  def dist(self, x, y):    return self.norm(x) - self.norm(y)  def fuse(self, x, w1, y, w2):    return (x * w1 + y * w2) / (w1 + w2)  def nudge(self, x, y):    tmp = x + rand() * 1.5 * (y - x)    if tmp > self.most : tmp = self.least    if tmp < self.least: tmp = self.most    return tmp    class S(Col):  "For syms"  def __init__(self, col=0, items=[], name=None):    self.index = frozenset(items)    self.items = items    self.col = col    self.name = name   def any(self):    return random.choice(self.items)  def __iadd__(self, x):     assert x in self.index  def dist(self, x, y): return 0 if x == y else 0  def fuse(self, x, w1, y, w2):    return x if rand() <= w1 / (w1 + w2) else y  def nudge(self, x, y):    return x if rand() < 0.33 else y  def extrapolate(self, x, y, z):    if rand() >= The.de.cf:       return x    else:      w = y if rand() <= f else z       return x if rand() <= 0.5 else wclass O(Col):  "for objectives"  def __init__(self, col=0, f=lambda x: 1, name=None,    love=False  # for objectives to maximize, set love to True    ):    self.f = f    self.love = love    self.name = name or f.__name__    self.n = N(col=col, least=-10 ** 32, most=10 ** 32)  def score(self, lst):    x = lst[self.col]    if x == None:        x = self.f(lst)        self.n += x        lst[self.col] = x    return x  def better(self, x, y):    e = The.de.epsilon    return x > y * e if self.love else x < y / e  def worse(self, x, y):    return x < y if self.love else x > y  class Meta(Col):  id = 0  def __init__(self, of, weight=1, dead=True):    self.weight, self.dead, self.of = weight, dead, of    self.id = Meta.id = Meta.id + 1  def any(self):    return Meta(self.of)  def fuse(self, x, w1, y, w2):     tmp = self.any()    tmp.weight = w1 + w2    return tmp  def nudge(self, x, y): return self.any()  def extrapolate(self, x, y, z):   return Meta(self.of)  def __repr__(self):    return self.of.name + ':' \           + ('DEAD' if self.dead else 'ALIVE') \           + '*' + str(self.weight)  def Schaffer(): "Schaffer" def f1(row): return row[1] ** 2 def f2(row): return (row[1] - 2) ** 2 return Cols(Schaffer,                [N(least=-10, most=10)                , O(f=f1)                 , O(f=f2)                ])def fonseca(): "Fonseca"  n=3; def f1(x): return 1-math.exp(-np.sum([(x[1+z]-1/(n**0.5))**2                                      for z in xrange(n)])) def f2(x): return 1-math.exp(-np.sum([(x[1+z]+1/(n**0.5))**2                                      for z in xrange(n)])) return Cols(fonseca,                n*[ N(least=-4, most=4)]                + [ O(f=f1)                ,   O(f=f2)                ])  def kursawe(): "Kursawe"  n=3; a=0.8; b=3 def f1(x): return np.sum([-10*math.exp(-0.2*math.sqrt(x[1+z]**2+x[z+2]**2))                              for z in xrange(n-1)])  def f2(x): return np.sum([np.abs(x[z+1])**a+5*math.sin(x[z+1]**b)                              for z in xrange(n)])  return Cols(kursawe,                n*[ N(least=-4, most=4)]                + [ O(f=f1)                ,   O(f=f2)                ])def ZDT1(): "ZDT1"  n=30; def g(x):  return (1+9*(np.sum(x[2:-2]))/(n-1)) def f1(x): return x[1] def f2(x): return g(x)*(1-math.sqrt(abs(f1(x)/g(x))));   return Cols(kursawe,                n*[ N(least=0, most=1)]                 + [O(f=f1)                ,  O(f=f2)])# def ZDT3():#  "ZDT3" #  n=3;#  a=0.8; b=3#  def f1(x): return np.sum([-10*math.exp(-0.2*math.sqrt(x[1+z]**2+x[z+2]**2)) #                              for z in xrange(n-1)])#  #  def f2(x): return np.sum([np.abs(x[z+1])**a+5*math.sin(x[z+1]**b) #                              for z in xrange(n)])#  #  return Cols(kursawe,#                 [ N(least=-5, most=5)#                 , N(least=-5, most=5)#                 , N(least=-5, most=5)#                 , O(f=f1)#                 , O(f=f2)#                 ])  def _schaffer():  m = Schaffer()  for _ in range(10):    one = m.any()    m.score(one)    print(one)  def _fonseca():  m = fonseca()  for _ in range(10):    one = m.any()    m.score(one)    print(one)def _ZDT1():  m = ZDT1()  print(m.__dict__)  for _ in range(10):    one = m.any()    m.score(one)    print(one)  def _xomo():  m = xomo()  print(m.__dict__)  for _ in range(10):    one = m.any()    m.score(one)    print(one)  class Cols:  def __init__(self, factory, cols=[]):    self.cols = [Meta(self)] + cols    self.factory, self.name = factory, factory.__name__    self.nums = [];  self.syms = []; self.objs = []    for pos, header in enumerate(self.cols):      header.col = pos       if isinstance(header, N): self.nums += [header]      if isinstance(header, S): self.syms += [header]      if isinstance(header, O): self.objs += [header]    self.indep = self.nums + self.syms    self.cl = Close()  def any(self): return [z.any() for z in self.cols]  def tell(self, lst):     for z in self.indep: z += lst[z.col]  def score(self, l): return [z.score(l) for z in self.objs]  def nudge(self, lst1, lst2):    return [one.nudge(x, y)             for x, y, one in vals(lst1, lst2, self.cols)]  def extrapolate(self, lst1, lst2, lst3):    tmp = [one.extrapolate(x, y, z) for x, y, z, one in             vals3(lst1, lst2, lst3, self.cols)]    one = any(self.objs)    tmp[one.col] = lst1[one.col]    return tmp  def fuse(self, lst1, lst2):    w1 = lst1[0].weight    w2 = lst2[0].weight    return [one.fuse(x, w1, y, w2)             for x, y, one in vals(lst1, lst2, self.cols)]  def fromHell(self, lst):    x, c = 0, len(self.objs)    for header in self.objs:      val = header.col      tmp = header.norm(val)      tmp = tmp if header.love else 1 - tmp      x += tmp ** 2    return x ** 0.5 / c ** 0.5  def dominates(self, lst1, lst2):    self.score(lst1)    self.score(lst2)    better = False    for x, y, obj in vals(lst1, lst2, self.objs):      if obj.worse(x, y) : return False      if obj.better(x, y): better = True    return better  def dist(self, lst1, lst2, peeking=False):    total, c = 0, len(self.indep)    for x, y, indep in vals(lst1, lst2, self.indep):      total += indep.dist(x, y) ** 2     d = total ** 0.5 / c ** 0.5    if not peeking: self.cl += d    # Peeking? What's peeking?          return ddef vals(lst1, lst2, cols):  for c in cols:    yield lst1[c.col], lst2[c.col], cdef vals3(lst1, lst2, lst3, cols):  for c in cols:    yield lst1[c.col], lst2[c.col], lst3[c.col], cdef fromLine(a, b, c):    x = (a ** 2 + c ** 2 - b ** 2) / (2 * c)    return max(0, (a ** 2 - x ** 2)) ** 0.5def neighbors(m, lst1, pop):  return sorted([(m.dist(lst1, lst2), lst2)                  for lst2 in pop                  if not lst1[0].id == lst2[0].id])class deadAnt(object):  def __init__(self, model=Schaffer):    self.m=model()    self.pop = {}    self.frontier=[]    def remember(self, new):    self.frontier.append(new);    self.pop[ new[ 0 ].id ] = new;    #self.m.tell(new)   self.m.score(new)     def itsAlive(self, lst): lst[0].dead = False; return lst  def hes_Dead_Jim(self, lst) : lst[0].dead = True;  return lst  def itsGone(self, lst) : del self.pop[lst[0].id]  def makeSomeAnts(self, n) :    for _ in range(n):      self.remember(self.itsAlive(self.m.any()))  def DA(self):    self.makeSomeAnts(The.np * len(self.m.indep))  # initialize some ants    k = 100#The.k  # k=100, see line 54    new = self.m.any()    while k > 0:      k -= 1      #pdb.set_trace()      (a, old), (b, other) = neighbors(self.m, new, self.pop.values())[:2]      #pdb.set_trace()            if not self.m.cl.close(a):        c = self.m.dist(old, other, peeking=True)#         print('*')        y = fromLine(a, b, c)        if not self.m.cl.close(y):          #print('Extrapolation')          self.remember(self.itsAlive(new))          new = self.m.any()          continue        # else close enough to reflect on old      if old[0].dead:#         say('x')        new = self.m.fuse(new, old)        self.itsGone(old)        self.remember(self.hes_Dead_Jim(new))        new = self.m.any()      elif  self.m.dominates(new, old):#         say('!')        k += 2*The.kMore        self.hes_Dead_Jim(old)        self.remember(self.itsAlive(new))        new = self.m.nudge(old, new)      elif self.m.dominates(old, new):#         say('_')        self.remember(self.hes_Dead_Jim(new))        new = self.m.nudge(new, old)      else:        self.remember(self.itsAlive(new))#         say('.')        new = self.m.any()            #if math.floor(k)%50==0: say('\n')#     for k in self.frontier:#      k.append(k[3]+k[2])    return self.frontier     class diffEvol(object):  "DE"    def __init__(self, model=Schaffer):    self.m=model()    self.pop = {}    self.frontier=[]    def itsAlive(self, lst):    lst[0].dead = False; self.m.score(lst);    return lst    def remember(self, new):    self.frontier.append(self.itsAlive(new));      def initFront(self, n) :    for _ in range(n):      self.remember(self.m.any())  def DE(self):    self.initFront(The.np * len(self.m.indep))    lives = The.de.lives    while lives > 0:      better = False      for pos, l1 in enumerate(self.frontier):       lives -= 1       l2, l3, l4 = one234(l1, self.frontier)       new = self.m.extrapolate(l2, l3, l4)       if  self.m.dominates(new, l1):        self.frontier.pop(pos)        self.frontier.insert(pos, new)        better = True       else:        self.remember(new)      if better:       lives += 1    return self.frontier     def one234(one, pop, f=lambda x:id(x)):   def oneOther():    x = any(pop)    while f(x) in seen:       x = any(pop)    seen.append( f(x) )    return x  seen  = [ f(one) ]  return oneOther(), oneOther(), oneOther()def _one234():  seed(The.seed)  for _ in range(10):    print(one234(1, range(1000)))class de(object):  def __init__(self, model=Schaffer):    self.m=model()    self.frontier=[]  def remember(self, new):       #self.m.tell(new);       self.frontier.append(new)      self.m.score(new)  def pop0(self, n) :      for _ in range(n):         self.remember(self.m.any())  def DE(self):    #seed(The.seed)    self.pop0(The.np * len(self.m.indep))    lives = The.de.lives    while lives > 0:      #say(lives)      better = False      for pos, l1 in enumerate(self.frontier):        lives -= 1        l2, l3, l4 = one234(l1, self.frontier)        candidate = self.m.extrapolate(l2, l3, l4)        if self.m.dominates(candidate, l1):          #print(">>", self.m.fromHell(candidate) - self.m.fromHell(l1))          better = True          self.frontier[pos] = candidate        elif self.m.dominates(l1, candidate):          pass        else:          #say(".")          self.remember(candidate)      if better:        lives += 1    return self.frontier      def _de(m): "DE" DE=diffEvol(model=m); res = sorted([k for k in DE.DE()],               key=lambda F: F[-1]+F[-2])[0]#  for k in res:#   print(k) return res[-1]+res[-2]def _da(m): "DA" da=deadAnt(model=m) res = sorted([k for k in da.DA() if not k[0].dead],                key=lambda F: F[-1]+F[-2])[0]#  for k in res:#   print(k) return res[-1]+res[-2]def getBaselines(): reps=int(1e2); Baselines={} for m in [ZDT1]: #, Schaffer, fonseca, kursawe]:  emax=-10e32; emin=10e32;  for s in  [_da, _de]:   for _ in xrange(reps):    tmp = s(m)    emax = emax if emax>tmp else tmp    emin = emin if emin<tmp else tmp   Baselines.update({m.__doc__:(emax, emin)}) return Baselinesdef crunch(searcher, model, Baseline): (emax, emin)=Baseline[model.__doc__] return (searcher(model)-emin)/(emax-emin) def testLearners(): random.seed(1) Baselines=getBaselines() reps=25; searchers = [_da, _de] for m in [ZDT1]: #, Schaffer, kursawe, fonseca]:  print(m.__doc__)  RES=[];  for s in searchers:   tmp = [crunch(s, m, Baselines) for _ in xrange(reps)]   tmp.insert(0, s.__doc__)   RES.append(tmp)  rdivDemo(RES)  print(" ")      #   for k in res:#      print(k)# testLearners()# _ZDT1()#_fonseca()#_de(Schaffer)#_da(Schaffer)if __name__ == '__main__': _xomo()#cmd('_deadAnt()')
