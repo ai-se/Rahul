@@ -1,7 +1,7 @@
 ### Deadant
 
 - All models have been implemented. (Schaffer, fonseca, kursawe, ZDT1, ZDT3, xomo, pom3) 
-- SK tests performed.
+- SK tests.
 
 ### XOMO
 
