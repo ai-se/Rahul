@@ -57,4 +57,4 @@ def lookInto():
     m.oo()
 
 if __name__ == '__main__':
-    lookInto()
+    modeld()

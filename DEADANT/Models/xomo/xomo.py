@@ -289,15 +289,15 @@ def totalRisk(project, risktable):
 
 def getRisk(a, b, project, risks):
   if (a in project) and (b in project):
-    _aval = int(project[a])
-    _bval = int(project[b])
+    _aval = int(project[a]); #print(_aval)
+    _bval = int(project[b]); #print(_bval)
     try:
       _rt = risks[a, b]
       _rt = _rt.split(",")          # split table
       _rt = _rt[_bval-1]            # grab line
       _rt = _rt.split()             # split line
       return float(_rt[_aval-1])    # find index
-    except KeyError:
+    except (KeyError, IndexError):
       return 0
   else: return 0
 
@@ -637,7 +637,8 @@ class Cocomo(Model):
           kwargs = dict(_acc.items() + kwargs.items())
           break
         except:
-          print "Input file [", _a, "] not readable"
+          pass
+          #print "Input file [", _a, "] not readable"
     # Read constraints from kwargs:
     for _key,_val in kwargs.items():
 #      print _key, _val
@@ -864,7 +865,7 @@ class Cocomo(Model):
     if  sum == -1: sum  = o.sumSfs(x)
     if  exp == -1: exp  = b + 0.01 * sum
     if prod == -1: prod = o.prodEms(x)
-    return a*x["kloc"]**exp*prod
+    return a*abs(x["kloc"])**exp*prod
 
   def month_calc(o, x, effort, 
                  sum=-1, prod=-1):
@@ -888,7 +889,7 @@ class Cocomo(Model):
              float(o.all["sced"].y(x["sced"])))
     _elessb = 0.01 * sum
     _f = _d + (0.2 * _elessb)
-    return _c * pow(_pmNs,_f) * (_scedPercent/100.0)
+    return _c * pow(abs(_pmNs),_f) * (_scedPercent/100.0)
 
   def defect_calc(o, x):
     return (o.defects("requirements", x) +
