@@ -36,7 +36,6 @@ rank ,         name ,    med   ,  iqr
 ZDT1
 =========================
 
-
 Evaluation Time:
 DE : 0.16 s
 DA : 8.29 s
@@ -63,7 +62,6 @@ rank ,         name ,    med   ,  iqr
 ```
 Schaffer
 ==========================
-
 
 Evaluation Time:
 DE : 0.01 s
@@ -93,7 +91,6 @@ rank ,         name ,    med   ,  iqr
 Kursawe
 ==========================
 
-
 Evaluation Time:
 DE : 0.03 s
 DA : 0.67 s
@@ -122,7 +119,6 @@ rank ,         name ,    med   ,  iqr
 ```
 Fonseca
 ==========================
-
 
 Evaluation Time:
 DE : 0.02 s
