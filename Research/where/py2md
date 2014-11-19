@@ -1,0 +1,58 @@
+#!/bin/bash
+
+
+stem="${1%.*}"
+file="${stem}py"
+path="../where.wiki/${file}.md"
+url="https://github.com/ai-se/where"
+
+echo -n "markuping $1: "
+
+
+src=$1
+target=${path}
+force=$2
+
+if [ -n "$2" -o "$src" -nt "$target" ] 
+then
+echo updating to ${path} ...
+(
+cat<<EOF
+
+[[etc/img/leftarrow.png]]   [Back   to WHERE](Home)
+
+# $stem
+
+_View this source at [the code directory]($url)._
+
+____
+
+
+EOF
+
+cat $1 |
+gawk --source '
+BEGIN { First = 1
+        In = 1}
+/^"""</,/^>"""/ { next }
+
+/^"""/ { In = 1 - In
+         if (In) 
+	     print "````python"
+         else
+	     if (First)
+               First = 0
+             else
+               print "````"
+         next
+       }
+{ print $0 }
+END { if (In) print "````" }
+' 
+) > ${path}
+
+echo -n " updating, "
+
+fi
+echo "ok"
+
