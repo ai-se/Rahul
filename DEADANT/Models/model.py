@@ -4,7 +4,7 @@ import sys, pdb
 class Model:
     def __init__(self,name):
         self.name = name
-        if name == 'pom3':
+        if name == '_POM3':
             self.model = Pom()
         elif name == 'xomo':
             self.model = Xomo(model = 'flight')
@@ -19,7 +19,7 @@ class Model:
         elif name == 'xomoall':
             self.model = Xomo(model='all')
         else:
-            sys.stderr.write("Enter valid model name pom3 or xomoflight --> xomo[flight/ground/osp/osp2/all]\n")
+            sys.stderr.write("Enter valid model name _POM3 or xomoflight --> xomo[flight/ground/osp/osp2/all]\n")
             sys.exit()
     
     def trials(self,N,verbose=False):
@@ -48,7 +48,7 @@ def modeld():
     m = Model('xomoall')
     headers,rows = m.trials(5)
     p(m,headers,rows)
-    m = Model('pom3')
+    m = Model('_POM3')
     headers,rows = m.trials(5)
     p(m,headers,rows)
 

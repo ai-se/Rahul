@@ -24,6 +24,9 @@ class pom3_decisions:
         p3d.team_size = X[8]
         
 class pom3:
+    
+    def __init__(p3):
+     pass
             
     def simulate(p3, inputs):
     
@@ -49,6 +52,7 @@ class pom3:
         # # # # # # # #
         # 3) Shuffle  #
         # # # # # # # #
+        
         
         for shufflingIteration in range(numberOfShuffles):
             for team in POM3_TEAMS.teams:
@@ -110,7 +114,5 @@ class pom3:
 #p3 = pom3()
 #print p3.simulate([0.20, 1.26, 8, 0.95, 100, 10, 2, 5, 20])
 
-def pom3_do():
-    pass
-
+ 
            
