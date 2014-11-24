@@ -1,6 +1,6 @@
 ### Deadant
 
-- All models have been implemented. (Schaffer, fonseca, kursawe, ZDT1, ZDT3, xomo, pom3) 
+- All models have been implemented. (Schaffer, fonseca, kursawe, ZDT1, ZDT3, DTLZ4, DTLZ7, xomo, pom3) 
 - SK tests.
 
 ### XOMO
