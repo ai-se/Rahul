@@ -3,7 +3,7 @@ import sys, pdb
 import os
 _HOME=os.environ["HOME"]
 sys.path.insert(0,_HOME+"/git/ai-se/Rahul/DEADANT")
-from deadAnt import *
+from deadant import *
 import math, numpy as np
 
 class Model:
